@@ -29,6 +29,11 @@ data/dict-ja-ar/*.json5  (JA->AR pack)
   Dictionary Research and Development Group, used under CC BY-SA 4.0, and
   content from English Wiktionary extracted by kaikki.org (Wiktextract), used
   under CC BY-SA 4.0."
+  Example sentences are included from the jmdict-simplified examples release;
+  those sentences are drawn from Tatoeba (https://tatoeba.org), used under
+  CC BY 2.0 FR. Each example is tagged in the source data with its Tatoeba
+  sentence id, through which author attribution is available
+  (https://tatoeba.org/eng/sentences/show/<id>).
 
 ShareAlike note: the derived JA->AR mapping is published in this repository
 under the same CC BY-SA 4.0 terms as its sources.
