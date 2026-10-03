@@ -32,7 +32,8 @@
     "build-safari": "node tools/make_manifest.js safari development && npm run res && node tools/build.js safari development",
     "watch-safari": "node tools/make_manifest.js safari development && npm run res && node tools/build.js safari development watch",
     "release-safari": "node tools/make_manifest.js safari production && npm run res-force && node tools/build.js safari production && yes | xcrun safari-web-extension-converter --force --no-open dist-safari --project-location dist-safari",
-    "package-safari": "npm run release-safari && node tools/archive.js safari"
+    "package-safari": "npm run release-safari && node tools/archive.js safari",
+    "res-ar": "node tools/arabic-data/export_packs.js"
   },
   "dependencies": {
     "deinja": "0.0.3",

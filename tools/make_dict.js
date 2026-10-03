@@ -46,10 +46,10 @@ const splitDataAndWrite = (data, split, to, outputDirPath) => {
   let outData = {};
 
   const outFiles = [];
-  for (let i = 1; i <= keys.length; i++) {
+  for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
     outData[key] = data[key];
-    if (i >= nextThreshold || i === keys.length) {
+    if (i + 1 >= nextThreshold || i === keys.length - 1) {
       const outJson = JSON.stringify(outData);
       const outFileName = `/${to}${outFiles.length}.json`;
       const outPath = path.join(outputDirPath, outFileName);
@@ -90,11 +90,16 @@ const uniteJsonFiles = (fileGlobList) => {
   return resultData;
 };
 
-main(
-  {
-    from: ["data/dict/[a-z].json5"],
-    to: "data/dict",
-    split: 10,
-  },
-  "static/gen",
-);
+const DICTIONARY_PACKS = [
+  { from: ["data/dict/[a-z].json5"], to: "data/dict", split: 10 },
+  { from: ["data/dict-en-ar/[0-9][0-9].json5"], to: "data/dict-en-ar", split: 4 },
+  { from: ["data/dict-ja-ar/[0-9][0-9].json5"], to: "data/dict-ja-ar", split: 20 },
+];
+
+if (require.main === module) {
+  for (const pack of DICTIONARY_PACKS) {
+    main(pack, "static/gen");
+  }
+}
+
+module.exports = { DICTIONARY_PACKS, main };

@@ -90,6 +90,8 @@ const JapaneseTextResource: TextResource = {
   skipPdfConfirmation: "PDFファイルのダウンロード確認を省略する",
   pdfUrlPattern: "PDFドキュメント判定の上書き(URLに対する正規表現)",
   domType: "DOM種別",
+  applyDictionaryPacks: "辞書パックを適用",
+  finishSyncPacks: "辞書パックを更新しました({{{count}}}語)",
 };
 
 export { JapaneseTextResource };

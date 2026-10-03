@@ -7,6 +7,7 @@
 const locals = {
   get: (...args) => chrome.storage.local.get(...args),
   set: (...args) => chrome.storage.local.set(...args),
+  remove: (...args) => chrome.storage.local.remove(...args),
 };
 
 const syncs = {
@@ -26,6 +27,7 @@ const sync = {
 const local = {
   get: async (args) => doAsync(locals.get, args),
   set: async (args) => doAsync(locals.set, args),
+  remove: async (args) => doAsync(locals.remove, args),
   async pick(key) {
     const data = await local.get([key]);
     return data?.[key];

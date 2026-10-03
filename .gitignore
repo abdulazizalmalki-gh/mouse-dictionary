@@ -10,3 +10,6 @@ static/gen/
 static/gen-*/
 static/overwrite/
 static/pdf/
+
+# Raw dictionary downloads + intermediate JSON (regenerable via tools/arabic-data)
+tools/arabic-data/cache/

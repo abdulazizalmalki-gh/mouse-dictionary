@@ -10,6 +10,7 @@ export default {
   parseWordsLimit: 8,
   lookupWithCapitalized: false,
   initialPosition: "right",
+  dictionaryPacks: ["en-ja"],
   skipPdfConfirmation: false,
   pdfUrl: "",
   backgroundColor: "#ffffff",
@@ -81,7 +82,7 @@ export default {
       </span>
       <span style="cursor:pointer;visibility:hidden;" data-md-pronunciation="{{head}}" data-md-hovervisible="true">🔊</span>
       <br/>
-      <span style="font-size:{{descFontSize}};color:{{descFontColor}};">
+      <span style="font-size:{{descFontSize}};color:{{descFontColor}};unicode-bidi:plaintext;">
         {{{desc}}}
       </span>
     {{/isShort}}
@@ -89,7 +90,7 @@ export default {
       <span style="font-size:{{headFontSize}};color:{{headFontColor}};font-weight:bold;font-family:Georgia;">
         {{head}}
       </span>
-      <span style="color:#505050;font-size:x-small;">
+      <span style="color:#505050;font-size:x-small;unicode-bidi:plaintext;">
         {{shortDesc}}
       </span>
     {{/isShort}}

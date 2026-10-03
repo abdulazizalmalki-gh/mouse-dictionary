@@ -1,0 +1,38 @@
+License information for the bundled dictionary data
+===================================================
+
+The extension code remains MIT-licensed (see LICENSE). The dictionary packs
+under data/ are separate data works with their own licenses:
+
+data/dict/*.json5  (existing default pack, EN->JA)
+  Based on ejdict-hand (https://github.com/kujirahand/EJDict), Public Domain.
+
+data/dict-en-ar/*.json5  (EN->AR pack)
+  Derived from kaikki.org / Wiktextract machine-readable data extracted from
+  English Wiktionary (https://kaikki.org, https://en.wiktionary.org).
+  License: Creative Commons Attribution-ShareAlike 4.0 International
+  (CC BY-SA 4.0).
+  Attribution: "This data includes content from English Wiktionary,
+  extracted by kaikki.org (Wiktextract), used under CC BY-SA 4.0."
+
+data/dict-ja-ar/*.json5  (JA->AR pack)
+  Derived by bridging two CC BY-SA 4.0 sources:
+  1. JMdict/EDICT (https://www.edrdg.org/jmdict/j_jmdict.html), the
+     Japanese-English dictionary of the Electronic Dictionary Research and
+     Development Group, used under CC BY-SA 4.0 (the Japanese and English
+     components; see https://www.edrdg.org/edrdg/licence.html). This pack
+     uses the jmdict-simplified release (https://github.com/scriptin/
+     jmdict-simplified, same data, same license).
+  2. The EN->AR pack above (kaikki.org / English Wiktionary, CC BY-SA 4.0)
+     supplies the Arabic equivalents for English glosses.
+  Attribution: "This data includes JMdict dictionary data from the Electronic
+  Dictionary Research and Development Group, used under CC BY-SA 4.0, and
+  content from English Wiktionary extracted by kaikki.org (Wiktextract), used
+  under CC BY-SA 4.0."
+
+ShareAlike note: the derived JA->AR mapping is published in this repository
+under the same CC BY-SA 4.0 terms as its sources.
+
+Build provenance: the packs in data/ are generated from upstream releases
+(kaikki.org raw JSONL dump and jmdict-simplified 3.6.2) by the scripts in
+tools/arabic-data/; no manual editing.

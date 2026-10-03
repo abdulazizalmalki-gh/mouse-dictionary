@@ -16,6 +16,7 @@ export type MouseDictionaryBasicSettings = {
   width: number;
   height: number;
   skipPdfConfirmation: boolean;
+  dictionaryPacks: string[];
 };
 
 export type MouseDictionaryAdvancedSettings = {
@@ -35,6 +36,11 @@ export type MouseDictionaryAdvancedSettings = {
 };
 
 export type MouseDictionarySettings = MouseDictionaryBasicSettings & MouseDictionaryAdvancedSettings;
+
+export type DictionaryPack = {
+  id: string;
+  metaFile: string;
+};
 
 export type Replace = {
   key?: string;

@@ -78,6 +78,8 @@ export type TextResource = {
   skipPdfConfirmation: string;
   pdfUrlPattern: string;
   domType: string;
+  applyDictionaryPacks: string;
+  finishSyncPacks: string;
 };
 
 export type TextResourceKeys = keyof TextResource;

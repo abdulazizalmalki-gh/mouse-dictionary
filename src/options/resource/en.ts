@@ -95,6 +95,8 @@ const EnglishTextResource: TextResource = {
   skipPdfConfirmation: "Skip PDF download confirmation",
   pdfUrlPattern: "Override PDF document judgment (regular expressions for URL)",
   domType: "DOM Type",
+  applyDictionaryPacks: "Apply dictionary packs",
+  finishSyncPacks: "Dictionary packs updated ({{{count}}} words)",
 };
 
 export { EnglishTextResource };

@@ -8,12 +8,26 @@ class Storage {
     for (const key of keys) {
       result[key] = this.data[key];
     }
-    callback(result);
+    if (callback) {
+      callback(result);
+    }
+    return result;
   }
 
   set(items, callback) {
     Object.assign(this.data, items);
-    callback();
+    if (callback) {
+      callback();
+    }
+  }
+
+  remove(keys, callback) {
+    for (const key of keys) {
+      delete this.data[key];
+    }
+    if (callback) {
+      callback();
+    }
   }
 }
 
@@ -21,6 +35,7 @@ class Chrome {
   constructor() {
     this.runtime = {
       lastError: null,
+      getURL: (path) => `chrome-extension://test${path}`,
     };
     this.storage = {
       local: new Storage(),

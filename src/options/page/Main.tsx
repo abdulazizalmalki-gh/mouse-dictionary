@@ -20,6 +20,7 @@ import {
 import {
   AdvancedSettings,
   BasicSettings,
+  DictionaryPacks,
   LoadDictionary,
   OperationPanel,
   Tips,
@@ -80,7 +81,7 @@ const initialState: MainState = {
   initialized: false,
 };
 
-type UpdateState = (state: Partial<MainState>) => void;
+type UpdateState = (state: Partial<MainState>, settingsPatch?: Partial<MouseDictionarySettings>) => void;
 
 export const Main: React.FC = () => {
   const [state, dispatch] = useReducer(reducer, {
@@ -215,6 +216,11 @@ export const Main: React.FC = () => {
               disabled={state.busy}
               onClick={() => confirmAndLoadInitialDict("confirmReloadInitialDict", updateState)}
             />
+            <DictionaryPacks
+              busy={state.busy}
+              selectedPackIds={state.settings.dictionaryPacks ?? ["en-ja"]}
+              onSync={(packIds) => applyDictionaryPacks(packIds, state.settings, updateState)}
+            />
           </BasicSettings>
           <br />
 
@@ -317,6 +323,30 @@ const loadDictionaryData = async (dictionaryFile: DictionaryFile, updateState: U
     });
     message.success(res.get("finishRegister", { count: count?.toLocaleString() }));
     config.setDataReady(true);
+  } catch (e) {
+    if (e instanceof Error) {
+      message.error(e.toString());
+    } else {
+      message.error(String(e));
+    }
+  } finally {
+    updateState({ busy: false, progress: "", dictDataUsage: -1 });
+  }
+};
+
+const applyDictionaryPacks = async (
+  packIds: string[],
+  settings: MouseDictionarySettings,
+  updateState: UpdateState,
+): Promise<void> => {
+  try {
+    updateState({ busy: true, panelLevel: 0 }, { dictionaryPacks: packIds });
+    await saveSettings({ ...settings, dictionaryPacks: packIds });
+    const { registered } = await dict.syncInstalledPacks(packIds, (count, progress) => {
+      updateState({ progress: res.get("progressRegister", { count: count.toLocaleString(), progress }) });
+    });
+    await config.setDataReady(true);
+    await message.success(res.get("finishSyncPacks", { count: registered.toLocaleString() }));
   } catch (e) {
     if (e instanceof Error) {
       message.error(e.toString());

@@ -5,15 +5,18 @@
  */
 
 import { env, storage } from "../extern";
-import type { DictionaryFileEncoding, DictionaryFileFormat } from "../types";
+import type { DictionaryFileEncoding, DictionaryFileFormat, DictionaryPack } from "../types";
 import { EijiroParser, JsonDictParser, SimpleDictParser } from "./dictparser";
 import { LineReader } from "./linereader";
+import { DEFAULT_PACK_IDS, DICTIONARY_PACKS, mergeDescriptions, packIdsFromSettings } from "./packs";
 
 type ProgressCallback = (wordCount: number, progress: string) => void;
 
 type DictionaryInformation = {
   files: string[];
 };
+
+const KEY_INSTALLED_PACKS = "**** dict_packs ****";
 
 type Callback = (param: CallbackParam) => void;
 type ReadingCallback = (param: ReadingCallbackParam) => void;
@@ -111,15 +114,69 @@ const createDictParser = (format: DictionaryFileFormat) => {
 };
 
 export const registerDefaultDict = async (fnProgress: ProgressCallback): Promise<number> => {
-  const dict = (await loadJsonFile("/data/dict.json")) as DictionaryInformation;
-  fnProgress(0, "0");
+  return await registerPacks(DEFAULT_PACK_IDS, fnProgress);
+};
+
+// Register one dictionary pack (shards listed in its metadata file).
+export const registerPack = async (pack: DictionaryPack, fnProgress: ProgressCallback): Promise<number> => {
+  const dict = (await loadJsonFile(pack.metaFile)) as DictionaryInformation;
   let wordCount = 0;
   for (let i = 0; i < dict.files.length; i++) {
     wordCount += await registerDict(dict.files[i]);
-    const progress = `${i + 1}/${dict.files.length}`;
-    fnProgress(wordCount, progress);
+    fnProgress(wordCount, `${i + 1}/${dict.files.length}`);
   }
   return wordCount;
+};
+
+// Register multiple packs, merging descriptions when headwords collide.
+export const registerPacks = async (packIds: string[], fnProgress: ProgressCallback): Promise<number> => {
+  const packs = DICTIONARY_PACKS.filter((p) => packIds.includes(p.id));
+  let wordCount = 0;
+  for (const pack of packs) {
+    wordCount += await registerPack(pack, fnProgress);
+  }
+  return wordCount;
+};
+
+// Synchronize the storage with the desired pack set: drop keys that no
+// selected pack provides, then (re-)register every selected pack so values
+// are rebuilt cleanly from pack data.
+export const syncInstalledPacks = async (
+  desiredIds: string[],
+  fnProgress: ProgressCallback,
+): Promise<{ removed: number; registered: number }> => {
+  const desired = packIdsFromSettings(desiredIds);
+  const installed = await getInstalledPacks();
+
+  let removed = 0;
+  const stale = installed.filter((id) => !desired.includes(id));
+  for (const id of stale) {
+    const pack = DICTIONARY_PACKS.find((p) => p.id === id);
+    if (pack) {
+      removed += await unregisterPack(pack);
+    }
+  }
+
+  const registered = await registerPacks(desired, fnProgress);
+  await storage.local.set({ [KEY_INSTALLED_PACKS]: desired });
+  return { removed, registered };
+};
+
+const unregisterPack = async (pack: DictionaryPack): Promise<number> => {
+  const dict = (await loadJsonFile(pack.metaFile)) as DictionaryInformation;
+  let count = 0;
+  for (const file of dict.files) {
+    const data = await loadJsonFile(file);
+    const keys = Object.keys(data);
+    await storage.local.remove(keys);
+    count += keys.length;
+  }
+  return count;
+};
+
+export const getInstalledPacks = async (): Promise<string[]> => {
+  const packs = await storage.local.pick(KEY_INSTALLED_PACKS);
+  return Array.isArray(packs) ? packs : [];
 };
 
 const loadJsonFile = async (fname: string): Promise<Record<string, any>> => {
@@ -131,6 +188,12 @@ const loadJsonFile = async (fname: string): Promise<Record<string, any>> => {
 const registerDict = async (fname: string): Promise<number> => {
   const dictData = await loadJsonFile(fname);
   const wordCount = Object.keys(dictData).length;
-  await storage.local.set(dictData);
+  // Merge with values already in storage (another pack may own the same headword).
+  const merged: Record<string, string> = {};
+  const existing = await storage.local.get(Object.keys(dictData));
+  for (const [head, desc] of Object.entries(dictData)) {
+    merged[head] = mergeDescriptions(existing[head] as string | undefined, desc as string);
+  }
+  await storage.local.set(merged);
   return wordCount;
 };
