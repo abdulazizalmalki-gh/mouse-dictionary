@@ -6,7 +6,11 @@ class Storage {
   get(keys, callback) {
     const result = {};
     for (const key of keys) {
-      result[key] = this.data[key];
+      // Mirror real chrome.storage: omit keys that are not stored (so
+      // prototype members like "constructor" do NOT appear as own keys).
+      if (Object.prototype.hasOwnProperty.call(this.data, key)) {
+        result[key] = this.data[key];
+      }
     }
     if (callback) {
       callback(result);

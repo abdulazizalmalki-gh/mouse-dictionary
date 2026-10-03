@@ -23,15 +23,19 @@ export const packIdsFromSettings = (packs: string[] | undefined): string[] => {
 };
 
 // Join two descriptions of the same headword coming from different packs.
-export const mergeDescriptions = (existing: string | undefined, incoming: string): string => {
-  if (!existing) {
-    return incoming;
+// Values that are not strings (e.g. prototype members leaked by key lookups
+// such as "constructor") are treated as absent.
+export const mergeDescriptions = (existing: unknown, incoming: unknown): string => {
+  const a = typeof existing === "string" ? existing : "";
+  const b = typeof incoming === "string" ? incoming : "";
+  if (!a) {
+    return b;
   }
-  if (!incoming || existing === incoming || existing.includes(incoming)) {
-    return existing;
+  if (!b || a === b || a.includes(b)) {
+    return a;
   }
-  if (incoming.includes(existing)) {
-    return incoming;
+  if (b.includes(a)) {
+    return b;
   }
-  return `${existing} / ${incoming}`;
+  return `${a} / ${b}`;
 };

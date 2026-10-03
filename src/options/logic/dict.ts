@@ -192,7 +192,10 @@ const registerDict = async (fname: string): Promise<number> => {
   const merged: Record<string, string> = {};
   const existing = await storage.local.get(Object.keys(dictData));
   for (const [head, desc] of Object.entries(dictData)) {
-    merged[head] = mergeDescriptions(existing[head] as string | undefined, desc as string);
+    // Own-property check only: keys like "constructor" hit Object.prototype
+    // through the chain and would leak built-in functions as "existing" values.
+    const prev = Object.prototype.hasOwnProperty.call(existing, head) ? existing[head] : undefined;
+    merged[head] = mergeDescriptions(prev, desc);
   }
   await storage.local.set(merged);
   return wordCount;
