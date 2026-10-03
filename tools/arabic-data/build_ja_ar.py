@@ -20,6 +20,7 @@ entirely from the output.
 Output: cache/ja-ar.json  {japanese_headword: "Arabic eijiro-style senses"}
 """
 
+import gzip
 import json
 import re
 import sys
@@ -30,9 +31,16 @@ EN_AR_PATH = "cache/en-ar.json"
 # examples-eng release = full JMdict + example sentences (Tatoeba-sourced)
 JMDICT_PATH = "cache/jmdict-examples-eng-3.6.2.json"
 OUT_PATH = "cache/ja-ar.json"
+# kaikki Japanese Wiktionary dump: English GLOSSES per Japanese headword.
+# Covers compounds/names JMdict lacks (8k+ headwords) so the runtime fallback
+# never collapses e.g. ノーベル(...) onto the unrelated word ノー ("no").
+JAWIKT_PATH = "cache/ja.jsonl.gz"
 
 MAX_SENSES = 4
 MAX_SENT_LEN = 140
+
+# POS values whose "word" is not a lookup target (romaji entries, single kanji)
+JAWIKT_SKIP_POS = {"romanization", "character", "letter", "suffix", "prefix"}
 
 
 def normalize_gloss(g: str) -> str:
@@ -75,6 +83,17 @@ def lookup_en_ar(en_map: dict, gloss: str):
         lead = parts[0]
         if "-" in lead.strip("-") and lead in en_map:
             return en_map[lead]
+    # head-prefix fallback for long glosses: use the longest leading phrase
+    # that IS a dictionary entry ("a Nobel Prize in Literature" -> "nobel
+    # prize"). Guarded: >=2 words, never ending in a function word, so
+    # descriptive tails ("variety of ...", "piece of ...") can't match.
+    STOP = {"of", "in", "and", "or", "to", "a", "an", "the", "for", "with", "on", "at", "by", "as"}
+    for k in range(len(parts) - 1, 1, -1):
+        if parts[k - 1] in STOP:
+            continue
+        head = " ".join(parts[:k])
+        if head in en_map:
+            return en_map[head]
     return None
 
 
@@ -208,12 +227,68 @@ def main() -> int:
                 out[h] = desc
         entries += 1
 
+    # Second source: Japanese Wiktionary English glosses bridged through
+    # en-ar. Covers headwords JMdict lacks (compounds, names, loanwords like
+    # ノーベル / ハンブルク / ガラス) so the runtime fallback never has to
+    # collapse them onto unrelated short prefixes (ノー -> "no").
+    added = fill_from_jawikt(out, en_map, defs, sentences, jp_ar)
+
     json.dump(out, open(OUT_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=0, sort_keys=True)
     print(
         f"OK: {len(out)} ja headwords -> {OUT_PATH} ({entries} arabic-gated entries; "
-        f"examples: {with_ar_example} arabic-natural, {with_jmdict_example} from JMdict sentences)"
+        f"{added} from Japanese Wiktionary; examples: {with_ar_example} arabic-natural, "
+        f"{with_jmdict_example} from JMdict sentences)"
     )
     return 0
+
+
+def fill_from_jawikt(out: dict, en_map: dict, defs: dict, sentences: dict, jp_ar: dict) -> int:
+    """Bridge kaikki Japanese-Wiktionary glosses into `out` for missing heads.
+
+    One JSONL line per sense page; a headword joins only when its English
+    gloss bridges to Arabic, and is never overwritten if JMdict already owns
+    it (JMdict sense-scoping and examples win)."""
+    latin = re.compile(r"[A-Za-z]")
+    kana_or_kanji = re.compile(r"[\u3040-\u30ff\u31f0-\u31ff\u4e00-\u9fff]")
+    added = 0
+    with gzip.open(JAWIKT_PATH, "rt", encoding="utf-8") as f:
+        for line in f:
+            if '"glosses"' not in line:
+                continue
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if d.get("lang_code") != "ja" or d.get("pos") in JAWIKT_SKIP_POS:
+                continue
+            word = d.get("word", "")
+            if not word or word in out or len(word) > 20 or not kana_or_kanji.search(word):
+                continue
+            sense_strings = []
+            for s in d.get("senses", []):
+                if any("romanization" in (t or "") for t in s.get("tags", [])):
+                    continue
+                for g in (s.get("raw_glosses") or s.get("glosses") or [])[:3]:
+                    ar = lookup_en_ar(en_map, g)
+                    if not ar:
+                        continue
+                    line_text = ar.split("\n")[0]
+                    if " (" not in line_text:
+                        line_text, ex = ar_enrich.annotate(line_text, defs, sentences)
+                    if latin.search(line_text):
+                        continue
+                    if line_text not in sense_strings:
+                        sense_strings.append(line_text)
+                    break
+                if len(sense_strings) >= MAX_SENSES:
+                    break
+            if not sense_strings:
+                continue
+            desc = ar_enrich.scrub(" / ".join(sense_strings))
+            if desc not in out:
+                out[word] = desc
+                added += 1
+    return added
 
 
 if __name__ == "__main__":

@@ -476,3 +476,15 @@ test("Test Japanese words", () => {
   expect(createLookupWordsJa("ﾃﾚﾋﾞ")).toEqual(expect.arrayContaining(["ﾃﾚﾋﾞ", "テレビ"]));
   expect(createLookupWordsJa("ｶﾞｽ")).toEqual(expect.arrayContaining(["ガス"]));
 });
+
+test("Test katakana runs are not cut into unrelated prefixes", () => {
+  // ノーベル賞 must never generate ノー (the JMdict word "no"): a mid-katakana
+  // cut resolves compounds to unrelated short homophones.
+  const r = createLookupWordsJa("ノーベル賞");
+  expect(r).not.toContain("ノー");
+  expect(r).not.toContain("ノーベ");
+  expect(r).toContain("ノーベル賞");
+  expect(r).toContain("ノーベル"); // katakana->kanji boundary cut stays allowed
+  // Hiragana/kanji behaviour must be untouched (okurigana still works)
+  expect(createLookupWordsJa("動いた")).toEqual(expect.arrayContaining(["動く"]));
+});
