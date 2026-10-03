@@ -472,19 +472,17 @@ test("Test Japanese words", () => {
   expect(createLookupWordsJa("走った")).toEqual(expect.arrayContaining(["走る"]));
   expect(createLookupWordsJa("おいた")).toEqual(expect.arrayContaining(["おく", "おいる"]));
   expect(createLookupWordsJa("19az")).toEqual(expect.arrayContaining(["１９ａｚ"]));
-  // Halfwidth katakana must also reach fullwidth headwords (manga/UI text)
-  expect(createLookupWordsJa("ﾃﾚﾋﾞ")).toEqual(expect.arrayContaining(["ﾃﾚﾋﾞ", "テレビ"]));
-  expect(createLookupWordsJa("ｶﾞｽ")).toEqual(expect.arrayContaining(["ガス"]));
-});
-
-test("Test katakana runs are not cut into unrelated prefixes", () => {
-  // ノーベル賞 must never generate ノー (the JMdict word "no"): a mid-katakana
-  // cut resolves compounds to unrelated short homophones.
-  const r = createLookupWordsJa("ノーベル賞");
-  expect(r).not.toContain("ノー");
-  expect(r).not.toContain("ノーベ");
-  expect(r).toContain("ノーベル賞");
-  expect(r).toContain("ノーベル"); // katakana->kanji boundary cut stays allowed
-  // Hiragana/kanji behaviour must be untouched (okurigana still works)
-  expect(createLookupWordsJa("動いた")).toEqual(expect.arrayContaining(["動く"]));
+  // Halfwidth katakana must also reach fullwidth headwords (manga/UI text),
+  // keeping the usual prefix decomposition on both spellings.
+  expect(createLookupWordsJa("ﾃﾚﾋﾞ")).toEqual(expect.arrayContaining(["ﾃﾚﾋﾞ", "テレビ", "テレ", "テ", "ﾃﾚﾋ", "ﾃﾚ", "ﾃ"]));
+  expect(createLookupWordsJa("ｶﾞｽ")).toEqual(expect.arrayContaining(["ｶﾞｽ", "ガス", "ｶﾞ", "ｶ", "ガ"]));
+  // Fullwidth katakana runs keep cutting into all prefixes: upstream keeps the
+  // show-all-plausible-candidates design (wtetsu, PR #106 review). Missing
+  // compounds like ノーベル賞 may therefore still fall through to ノー — the
+  // wrong-translation case is fixed in the data layer, not by suppressing
+  // candidates (see the ja-ar pack build).
+  expect(createLookupWordsJa("ノーベル賞")).toEqual(expect.arrayContaining(["ノーベル賞", "ノーベル", "ノー", "ノ"]));
+  expect(createLookupWordsJa("ソフトウェアエンジニア")).toEqual(
+    expect.arrayContaining(["ソフトウェアエンジニア", "ソフトウェア", "ソフト", "ソ"]),
+  );
 });
