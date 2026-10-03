@@ -12,14 +12,13 @@ const FULLWIDTH_OFFSET = 0xfee0;
 
 // Halfwidth katakana (U+FF61-FF9F, common in manga/UI text) is converted to
 // its fullwidth form so ﾃﾚﾋﾞ looks up the same headwords as テレビ.
-// Conversion is applied per character in the halfwidth-katakana range only
-// (whole-string NFKC would fold unrelated characters), then a canonical-
-// composition NFC pass combines voiced marks with the preceding letter
-// (ｶ + ﾞ -> ガ); NFC performs no compatibility folds.
-const RE_HALFWIDTH_KATAKANA = /[\uFF61-\uFF9F]/;
-const RE_HALFWIDTH_KATAKANA_G = /[\uFF61-\uFF9F]/g;
+// Only maximal halfwidth-katakana runs are normalized: NFKC over the whole
+// string would fold unrelated characters (e.g. ① -> 1). Normalizing each run
+// lets NFKC compose voiced marks with the preceding letter (ｶ + ﾞ -> ガ)
+// without touching anything outside the run.
+const RE_HALFWIDTH_KATAKANA_RUN = /[\uFF61-\uFF9F]+/g;
 
-const convertHalfwidthKatakana = (s) => s.replace(RE_HALFWIDTH_KATAKANA_G, (c) => c.normalize("NFKC")).normalize("NFC");
+const convertHalfwidthKatakana = (s) => s.replace(RE_HALFWIDTH_KATAKANA_RUN, (run) => run.normalize("NFKC"));
 
 const createLookupWordsJa = (sourceStr) => {
   const str = sourceStr
@@ -33,13 +32,12 @@ const createLookupWordsJa = (sourceStr) => {
 
   // For halfwidth input, keep both chains: every candidate retains its usual
   // prefix decomposition (show-all-plausible-candidates design), e.g.
-  // ﾃﾚﾋ -> ﾃﾚﾋ/ﾃﾚ/ﾃ plus テレビ/テレ/テ.
+  // ﾃﾚﾋ -> ﾃﾚﾋ/ﾃﾚ/ﾃ plus テレビ/テレ/テ. Without halfwidth katakana the
+  // replace is a no-op, so no second chain is added.
   const chains = [str];
-  if (RE_HALFWIDTH_KATAKANA.test(str)) {
-    const converted = convertHalfwidthKatakana(str);
-    if (converted !== str) {
-      chains.push(converted);
-    }
+  const converted = convertHalfwidthKatakana(str);
+  if (converted !== str) {
+    chains.push(converted);
   }
 
   for (const chain of chains) {
