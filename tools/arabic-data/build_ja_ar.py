@@ -2,31 +2,36 @@
 """
 Mouse Dictionary (https://github.com/wtetsu/mouse-dictionary/)
 
-Build JA->AR dictionary data by bridging JMdict (ja->en, CC BY-SA via
-EDICT/Japanese-English Dictionary) through the kaikki-derived EN->AR map
-(see extract_en_ar.py). For every JMdict entry:
+Build JA->AR dictionary data by bridging JMdict (ja->en, CC BY-SA via EDRDG)
+through the kaikki-derived EN->AR map (extract_en_ar.py). The output is
+strictly Arabic: the English pivot glosses appear nowhere; explanations and
+examples come from the Arabic layers in ar_enrich:
 
-  headwords (kanji + kana forms)  ->  glosses translated to Arabic when an
-  exact/lemmatized English gloss matches the en-ar map; otherwise the English
-  gloss is kept with a "—" marker so lookup still returns something useful.
+  ar_defs.json            Arabic gloss -> Arabic definition (arwiktionary)
+  ar_sentence_index.json  Arabic word -> Arabic example sentence (Tatoeba)
+  examples_ar_by_jpn.json Japanese sentence -> Arabic sentence (Tatoeba,
+                          joined to JMdict examples by Tatoeba sentence id)
 
-A direct ja->ar pass from kaikki Japanese-edition translations is merged in
-first (it currently yields little, but keeps the pipeline forward-compatible).
+A sense with no Arabic bridge is kept only as ride-along context when the
+entry has at least one bridged sense — and even then rendered Arabic-first:
+bridged senses carry the Arabic annotation; unbridged senses are dropped
+entirely from the output.
 
-Output: JSON {japanese_headword: "eijirop-style / -separated senses"}.
+Output: cache/ja-ar.json  {japanese_headword: "Arabic eijiro-style senses"}
 """
 
 import json
 import re
 import sys
 
+import ar_enrich
+
 EN_AR_PATH = "cache/en-ar.json"
-# examples-eng release = full JMdict + example sentences (Tatoeba, CC-BY)
+# examples-eng release = full JMdict + example sentences (Tatoeba-sourced)
 JMDICT_PATH = "cache/jmdict-examples-eng-3.6.2.json"
 OUT_PATH = "cache/ja-ar.json"
 
 MAX_SENSES = 4
-MAX_EXAMPLES_PER_SENSE = 1
 MAX_SENT_LEN = 140
 
 
@@ -62,69 +67,74 @@ def lookup_en_ar(en_map: dict, gloss: str):
     return None
 
 
-def render_example(ex: dict) -> str:
-    sentences = ex.get("sentences", [])
-    jpn = next((t.get("text", "") for t in sentences if t.get("lang") == "jpn"), "")
-    eng = next((t.get("text", "") for t in sentences if t.get("lang") == "eng"), "")
-    if not jpn and not eng:
-        return ""
-    line = "مثال: " + cut(jpn) if jpn else ""
-    if eng:
-        line += ("\n" if line else "") + "→ " + cut(eng)
-    return line
-
-
 def cut(text: str, limit: int = MAX_SENT_LEN) -> str:
     text = text.strip()
     if len(text) <= limit:
         return text
-    # cut at a word/sentence boundary, never mid-word
     clipped = text[:limit]
-    for sep in ("。", ". ", "! ", "? ", " ", ""):
+    for sep in ("。", ". ", "! ", "? ", " "):
         idx = clipped.rfind(sep)
         if idx >= limit * 0.5:
-            return clipped[: idx + (1 if sep in ("。",) else 0)].rstrip() + "…"
+            return clipped[: idx + (1 if sep == "。" else 0)].rstrip() + "…"
     return clipped.rstrip() + "…"
 
 
-def render_sense(sense: dict, en_map: dict):
-    """One JMdict sense -> (has_arabic, display string)."""
+def example_ar_line(ex: dict, jp_ar_examples: dict) -> str:
+    """A JMdict example -> 'مثال: <japanese>' line; the Arabic translation is
+    attached separately after the sense via the jp text map (never English)."""
+    jpn = next((t.get("text", "") for t in ex.get("sentences", []) if t.get("lang") == "jpn"), "")
+    if not jpn:
+        return ""
+    return cut(jpn)
+
+
+def render_sense(sense: dict, en_map: dict, defs: dict, sentences: dict, jp_ar: dict):
+    """One JMdict sense -> Arabic display text, or None if no Arabic bridge.
+
+    The en_map values are already Arabic-enriched (definition + مثال line) by
+    extract_en_ar.py; only annotate when a line lacks that, never twice.
+    """
     glosses = [g["text"] for g in sense.get("gloss", []) if g.get("lang") == "eng" and g.get("text")]
     if not glosses:
-        return False, None
+        return None
     ar = None
-    matched_gloss = None
     for g in glosses[:4]:
         ar = lookup_en_ar(en_map, g)
         if ar:
-            matched_gloss = g
             break
-    if ar:
-        line = f"{ar}  [{cut(matched_gloss, 100)}]"
-    else:
-        # no Arabic bridge for this sense: keep the English definition,
-        # clearly bracketed so it reads as the explanation line
-        line = f"[{' ; '.join(cut(g, 100) for g in glosses[:2])}]"
-    extras = []
-    infos = [cut(i, 120) for i in sense.get("info", []) if i]
-    if infos:
-        extras.append("； ".join(infos[:2]))
-    for ex in (sense.get("examples") or [])[:MAX_EXAMPLES_PER_SENSE]:
-        r = render_example(ex)
-        if r:
-            extras.append(r)
-    text = line + ("\n" + "\n".join(extras) if extras else "")
-    return ar is not None, text
+    if ar is None:
+        return None
+    parts = ar.split("\n")
+    sense_line = parts[0]
+    example = parts[1] if len(parts) > 1 and parts[1].startswith("مثال:") else None
+    if " (" not in sense_line:
+        sense_line, ex = ar_enrich.annotate(sense_line, defs, sentences)
+        example = example or ex
+    text = sense_line
+    if not example:
+        # try a JMdict example with a known Arabic translation instead;
+        # reject if the Arabic translation itself contains latin runs (the
+        # pack gate below is zero-tolerance)
+        for ex in (sense.get("examples") or [])[:1]:
+            jpn = example_ar_line(ex, jp_ar)
+            ar_sent = jp_ar.get(jpn)
+            if ar_sent and not re.search(r"[A-Za-z]{2,}", ar_sent):
+                example = f"مثال: {cut(jpn)} — {cut(ar_sent, 120)}"
+                break
+    if example:
+        text = text + "\n" + example
+    return text
 
 
 def main() -> int:
     en_map = json.load(open(EN_AR_PATH, encoding="utf-8"))
     jmd = json.load(open(JMDICT_PATH, encoding="utf-8"))["words"]
+    defs, sentences, jp_ar = ar_enrich.load_layers()
 
     out = {}
-    translated = 0
-    senses_with_examples = 0
-    english_only_senses = 0
+    entries = 0
+    with_ar_example = 0
+    with_jmdict_example = 0
 
     for e in jmd:
         kanji = [
@@ -141,28 +151,23 @@ def main() -> int:
         if not heads:
             continue
 
-        senses = e.get("sense", [])
-        # Render every sense once, then attach per headword using JMdict's
-        # appliesToKanji/appliesToKana so heads don't inherit each other's
-        # senses (e.g. 猫 vs 猫車 wheelbarrow in the same entry).
+        # Render only bridged (Arabic) senses; per-headword scoping follows
+        # JMdict appliesToKanji/appliesToKana so heads don't inherit senses.
         rendered = []
-        entry_has_arabic = False
-        for s in senses:
-            ar_flag, text = render_sense(s, en_map)
-            rendered.append((s, ar_flag, text))
-            if ar_flag and text:
-                entry_has_arabic = True
-        if not entry_has_arabic:
+        for s in e.get("sense", []):
+            text = render_sense(s, en_map, defs, sentences, jp_ar)
+            if text:
+                rendered.append((s, text))
+        if not rendered:
             continue
 
         for h in heads:
             is_kanji = h in kanji
             sense_strings = []
             seen = set()
-            for s, ar_flag, text in rendered:
-                if not text or text in seen:
+            for s, text in rendered:
+                if text in seen:
                     continue
-                # Sense scope: "*" = all heads; otherwise only listed heads.
                 k_scope = s["appliesToKanji"]
                 n_scope = s["appliesToKana"]
                 applies = "*" in (k_scope if is_kanji else n_scope) or h in (k_scope if is_kanji else n_scope)
@@ -170,30 +175,24 @@ def main() -> int:
                     continue
                 seen.add(text)
                 sense_strings.append(text)
-                if s.get("examples"):
-                    senses_with_examples += 1
-                if not ar_flag:
-                    english_only_senses += 1
                 if len(sense_strings) >= MAX_SENSES:
                     break
-            if sense_strings:
-                out.setdefault(h, " / ".join(sense_strings))
-                translated += 1
-
-    # direct kaikki ja->ar translations, if extract_ja_ar_direct.py output exists
-    try:
-        direct = json.load(open("cache/ja-ar-direct.json", encoding="utf-8"))
-        for k, v in direct.items():
-            out[k] = v + " / " + out[k] if k in out else v
-        print(f"merged {len(direct)} direct ja-ar entries")
-    except FileNotFoundError:
-        pass
+            if not sense_strings:
+                continue
+            desc = " / ".join(sense_strings)
+            desc = ar_enrich.scrub(desc)
+            if "مثال:" in desc:
+                if " — " in desc:
+                    with_jmdict_example += 1
+                else:
+                    with_ar_example += 1
+            out.setdefault(h, desc)
+        entries += 1
 
     json.dump(out, open(OUT_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=0, sort_keys=True)
     print(
-        f"OK: {len(out)} ja headwords -> {OUT_PATH} "
-        f"({translated} arabic-gated entries, {senses_with_examples} senses with examples, "
-        f"{english_only_senses} english-explanation senses kept)"
+        f"OK: {len(out)} ja headwords -> {OUT_PATH} ({entries} arabic-gated entries; "
+        f"examples: {with_ar_example} arabic-natural, {with_jmdict_example} from JMdict sentences)"
     )
     return 0
 
