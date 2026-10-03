@@ -21,6 +21,8 @@ import re
 import sys
 from collections import OrderedDict
 
+import build_awn
+
 AR_CODE = "ar"
 AR_CHAR = re.compile(r"[\u0600-\u06FF]")
 MAX_SENSES = 6          # senses per headword
@@ -128,8 +130,28 @@ def main() -> int:
     if len(data) < MIN_WORDS:
         print(f"ABORT: only {len(data)} entries extracted (floor {MIN_WORDS})", file=sys.stderr)
         return 2
-    # Arabic-first enrichment: definitions (arwiktionary) and example
-    # sentences (Tatoeba) so the pack reads fully in Arabic.
+    # Arabic WordNet 4.x fill: English words whose Wiktionary page carries no
+    # Arabic translation table (modern vocabulary: arcade, incentive, ...).
+    # Each AWN entry is a sense list whose def/example belong to the SAME
+    # synset as its lemmas (never looked up by word — that attaches the wrong
+    # sense's definition, e.g. barcode -> شفرة getting the 'blade' gloss).
+    awn_path = "cache/awn-en-ar.json"
+    try:
+        awn = json.load(open(awn_path, encoding="utf-8"))
+    except FileNotFoundError:
+        awn = {}
+    added = 0
+    for word, senses in awn.items():
+        key = word.lower()
+        if key in data:
+            continue
+        line = build_awn.render_senses(senses)
+        if not line:
+            continue
+        data[key] = line
+        added += 1
+    # Arabic-first enrichment: definitions (arwiktionary > AWN) and example
+    # sentences (Tatoeba > AWN) so the pack reads fully in Arabic.
     import ar_enrich
 
     defs, sentences, _ = ar_enrich.load_layers()
@@ -139,6 +161,11 @@ def main() -> int:
         senses = []
         example = None
         for s in desc.split(" / "):
+            if " (" in s or s.startswith("مثال:"):
+                # already rendered with its own definition (AWN lines) —
+                # re-annotating would double-parenthesize
+                senses.append(s)
+                continue
             first, ex = ar_enrich.annotate(s, defs, sentences)
             # hard Arabic-only gate: no Latin may reach the pack
             if RE_LATIN.search(first):
@@ -155,7 +182,8 @@ def main() -> int:
         enriched[word] = ar_enrich.scrub(out)
     with open(dst, "w", encoding="utf-8") as f:
         json.dump(enriched, f, ensure_ascii=False, indent=0, sort_keys=True)
-    print(f"OK: {len(enriched)} en-ar entries ({dropped} latin senses dropped) -> {dst}")
+    print(f"OK: {len(enriched)} en-ar entries ({dropped} latin senses dropped, "
+          f"{added} added from Arabic WordNet) -> {dst}")
     return 0
 
 

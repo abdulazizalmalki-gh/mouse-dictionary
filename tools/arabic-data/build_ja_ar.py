@@ -64,6 +64,17 @@ def lookup_en_ar(en_map: dict, gloss: str):
     for cand in cands:
         if cand in en_map:
             return en_map[cand]
+    # hyphenated compound modifiers are lexemes of their own ("part-time job"
+    # -> "part-time"). Restricted to glosses whose LEADING token is hyphenated:
+    # two-word glosses with a plain first token ("number one", "tea bag",
+    # "side job") are lexicalized units where word-level fallback would grab a
+    # wrong sense (that's what made オシッコ/urine mean "ego" via 'number one'
+    # - which itself is a legitimate AWN entry, matched exactly).
+    parts = cands[0].split(" ")
+    if len(parts) >= 2:
+        lead = parts[0]
+        if "-" in lead.strip("-") and lead in en_map:
+            return en_map[lead]
     return None
 
 
@@ -186,7 +197,15 @@ def main() -> int:
                     with_jmdict_example += 1
                 else:
                     with_ar_example += 1
-            out.setdefault(h, desc)
+            prev = out.get(h)
+            if prev:
+                # homograph: another JMdict entry shares this headword
+                # (e.g. アルバイト = "part-time job" + "albite"). Merge senses
+                # instead of letting file order silently drop one.
+                if desc not in prev:
+                    out[h] = prev + " / " + desc
+            else:
+                out[h] = desc
         entries += 1
 
     json.dump(out, open(OUT_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=0, sort_keys=True)

@@ -472,4 +472,7 @@ test("Test Japanese words", () => {
   expect(createLookupWordsJa("走った")).toEqual(expect.arrayContaining(["走る"]));
   expect(createLookupWordsJa("おいた")).toEqual(expect.arrayContaining(["おく", "おいる"]));
   expect(createLookupWordsJa("19az")).toEqual(expect.arrayContaining(["１９ａｚ"]));
+  // Halfwidth katakana must also reach fullwidth headwords (manga/UI text)
+  expect(createLookupWordsJa("ﾃﾚﾋﾞ")).toEqual(expect.arrayContaining(["ﾃﾚﾋﾞ", "テレビ"]));
+  expect(createLookupWordsJa("ｶﾞｽ")).toEqual(expect.arrayContaining(["ガス"]));
 });

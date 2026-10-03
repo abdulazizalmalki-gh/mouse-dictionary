@@ -134,7 +134,7 @@ This project includes some third-party data:
 ### Dictionary data
 
 - [ejdict-hand](https://github.com/kujirahand/EJDict) (Public Domain)
-- English→Arabic pack: [kaikki.org](https://kaikki.org) / Wiktextract data from English Wiktionary (CC BY-SA 4.0)
+- English→Arabic pack: [kaikki.org](https://kaikki.org) / Wiktextract data from English Wiktionary (CC BY-SA 4.0), Arabic definitions from [Arabic Wiktionary](https://ar.wiktionary.org) (CC BY-SA 4.0), modern vocabulary and definitions from [Arabic WordNet 4.x](https://github.com/Salah-Sal/arabic-wordnet-v4) (CC BY 4.0, derived from [Open English WordNet](https://en-word.net), CC BY 4.0), example sentences from [Tatoeba](https://tatoeba.org) (CC BY 2.0 FR)
 - Japanese→Arabic pack: [JMdict/EDICT](https://www.edrdg.org/jmdict/j_jmdict.html) from the Electronic Dictionary Research and Development Group (CC BY-SA 4.0), bridged through the English→Arabic pack above (CC BY-SA 4.0)
 - See [DATA_LICENSE.txt](./DATA_LICENSE.txt) for full attribution. Dictionary packs (English-Japanese, English-Arabic, Japanese-Arabic) can be toggled in the options page.
 

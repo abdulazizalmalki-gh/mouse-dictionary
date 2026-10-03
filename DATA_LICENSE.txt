@@ -17,10 +17,17 @@ data/dict-en-ar/*.json5  (EN->AR pack)
   Foundation). Arabic example sentences are drawn from Tatoeba
   (https://tatoeba.org), used under CC BY 2.0 FR; author attribution is
   available per sentence id (https://tatoeba.org/eng/sentences/show/<id>).
+  Words with no Arabic translation in Wiktionary are filled from Arabic
+  WordNet 4.x (https://github.com/Salah-Sal/arabic-wordnet-v4, CC BY 4.0,
+  Abdo 2026), joined to Open English WordNet 2025
+  (https://github.com/globalwordnet/english-wordnet, CC BY 4.0, itself
+  based on Princeton WordNet 3.0) on synset offsets; definitions/examples
+  come from the same synset as each Arabic lemma.
   Attribution: "This data includes content from English Wiktionary and
   Arabic Wiktionary, extracted by kaikki.org (Wiktextract) / Wikimedia,
-  used under CC BY-SA 4.0, and example sentences from Tatoeba
-  (CC BY 2.0 FR)."
+  used under CC BY-SA 4.0; example sentences from Tatoeba (CC BY 2.0 FR);
+  and Arabic WordNet 4.x (CC BY 4.0, Salah Abdo) derived from Open English
+  WordNet / Princeton WordNet (CC BY 4.0)."
 
 data/dict-ja-ar/*.json5  (JA->AR pack)
   Derived by bridging two CC BY-SA 4.0 sources:
