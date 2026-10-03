@@ -39,6 +39,36 @@ JAWIKT_PATH = "cache/ja.jsonl.gz"
 MAX_SENSES = 4
 MAX_SENT_LEN = 140
 
+# Bridge alignment: an English gloss hits the WHOLE en page entry, which
+# merges every homograph and sense in Wiktionary page order (e.g. "no" ->
+# لَا + archaic cattle نَعَم + interjection). A katakana loanword carries the
+# dominant sense, so bridging keeps only the first chunk; later chunks are
+# homograph noise. Wiktionary sense order = frequency order, so chunk 1 is
+# the best available pick without full sense alignment.
+# The attached arwiktionary definition essay is then capped: this is a lookup
+# popup, not a grammar book.
+MAX_BRIDGE_DEF_CHARS = 80
+
+
+def cap_paren(line: str) -> str:
+    """'word (long def)' with the parenthetical capped to MAX_BRIDGE_DEF_CHARS."""
+    open_i = line.find(" (")
+    if open_i == -1 or not line.endswith(")"):
+        return line
+    word, definition = line[:open_i].strip(), line[open_i + 2 : -1].strip()
+    if len(definition) <= MAX_BRIDGE_DEF_CHARS:
+        return line
+    clipped = definition[:MAX_BRIDGE_DEF_CHARS]
+    cut_at = max(clipped.rfind(" "), clipped.rfind("؛"))
+    if cut_at < MAX_BRIDGE_DEF_CHARS // 2:
+        cut_at = MAX_BRIDGE_DEF_CHARS
+    return f"{word} ({clipped[:cut_at].rstrip(' ؛،.')}\u2026)"
+
+
+def primary_bridge_chunk(ar: str) -> str:
+    """Full en-ar entry -> the single dominant Arabic sense, definition capped."""
+    return cap_paren(ar.split("\n")[0].split(" / ")[0].strip())
+
 # POS values whose "word" is not a lookup target (romaji entries, single kanji)
 JAWIKT_SKIP_POS = {"romanization", "character", "letter", "suffix", "prefix"}
 
@@ -135,10 +165,11 @@ def render_sense(sense: dict, en_map: dict, defs: dict, sentences: dict, jp_ar: 
     if ar is None:
         return None
     parts = ar.split("\n")
-    sense_line = parts[0]
+    sense_line = primary_bridge_chunk(parts[0])
     example = parts[1] if len(parts) > 1 and parts[1].startswith("مثال:") else None
     if " (" not in sense_line:
         sense_line, ex = ar_enrich.annotate(sense_line, defs, sentences)
+        sense_line = cap_paren(sense_line)  # arwiktionary defs are essays
         example = example or ex
     text = sense_line
     if not example:
@@ -272,9 +303,10 @@ def fill_from_jawikt(out: dict, en_map: dict, defs: dict, sentences: dict, jp_ar
                     ar = lookup_en_ar(en_map, g)
                     if not ar:
                         continue
-                    line_text = ar.split("\n")[0]
+                    line_text = primary_bridge_chunk(ar)
                     if " (" not in line_text:
                         line_text, ex = ar_enrich.annotate(line_text, defs, sentences)
+                        line_text = cap_paren(line_text)  # arwiktionary defs are essays
                     if latin.search(line_text):
                         continue
                     if line_text not in sense_strings:
