@@ -13,3 +13,4 @@ static/pdf/
 
 # Raw dictionary downloads + intermediate JSON (regenerable via tools/arabic-data)
 tools/arabic-data/cache/
+__pycache__/
